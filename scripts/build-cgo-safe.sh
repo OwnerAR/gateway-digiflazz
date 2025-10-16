@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Cross-platform build script for Digiflazz Gateway
-# Usage: ./scripts/build.sh [platform] [arch]
+# Safe CGO build script that handles cross-compilation issues
+# This script builds with CGO only for compatible platforms
 
 set -e
 
@@ -36,6 +36,36 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Check if platform/arch combination supports CGO
+supports_cgo() {
+    local platform=$1
+    local arch=$2
+    
+    case "$platform" in
+        "linux")
+            # Linux ARM64 has CGO cross-compilation issues
+            if [ "$arch" = "arm64" ] || [ "$arch" = "arm" ]; then
+                return 1
+            fi
+            ;;
+        "windows")
+            # Windows 386 has compatibility issues
+            if [ "$arch" = "386" ]; then
+                return 1
+            fi
+            ;;
+        "darwin")
+            # macOS supports both architectures
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+    
+    return 0
+}
+
 # Clean build directory
 clean_build() {
     print_status "Cleaning build directory..."
@@ -55,10 +85,21 @@ build_platform() {
     
     print_status "Building for ${platform}/${arch}..."
     
-    CGO_ENABLED=1 GOOS=$platform GOARCH=$arch go build \
-        -ldflags "-X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-        -o "${BUILD_DIR}/${output_name}" \
-        ./cmd/server
+    # Check if CGO is supported for this combination
+    if supports_cgo "$platform" "$arch"; then
+        print_status "Building with CGO enabled for ${platform}/${arch}..."
+        CGO_ENABLED=1 GOOS=$platform GOARCH=$arch go build \
+            -ldflags "-X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o "${BUILD_DIR}/${output_name}" \
+            ./cmd/server
+    else
+        print_warning "CGO not supported for ${platform}/${arch}, building without CGO..."
+        print_warning "Note: SQLite cache will not work without CGO"
+        CGO_ENABLED=0 GOOS=$platform GOARCH=$arch go build \
+            -ldflags "-X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o "${BUILD_DIR}/${output_name}" \
+            ./cmd/server
+    fi
     
     if [ $? -eq 0 ]; then
         print_success "Built ${output_name}"
@@ -77,29 +118,22 @@ build_platform() {
     fi
 }
 
-# Build all platforms
+# Build all platforms (safe combinations only)
 build_all() {
-    print_status "Building for all platforms..."
+    print_status "Building for all platforms (CGO-safe combinations)..."
     
     # Linux
     build_platform "linux" "amd64"
-    # Note: ARM64 build disabled due to CGO cross-compilation issues
-    # build_platform "linux" "arm64"
-    # build_platform "linux" "arm"
     
     # Windows
     build_platform "windows" "amd64"
-    build_platform "windows" "arm64"
     
     # macOS
     build_platform "darwin" "amd64"
     build_platform "darwin" "arm64"
     
-    # FreeBSD
-    build_platform "freebsd" "amd64"
-    build_platform "freebsd" "arm64"
-    
     print_success "All builds completed!"
+    print_warning "Note: ARM64 builds for Linux/Windows require native runners due to CGO limitations"
 }
 
 # Build specific platform
@@ -108,13 +142,12 @@ build_specific() {
         case $PLATFORM in
             "linux")
                 build_platform "linux" "amd64"
-                # Note: ARM64 build disabled due to CGO cross-compilation issues
-                # build_platform "linux" "arm64"
-                # build_platform "linux" "arm"
+                print_warning "Linux ARM64/ARM builds disabled due to CGO cross-compilation issues"
+                print_warning "Use GitHub Actions with ARM64 runners for ARM builds"
                 ;;
             "windows")
                 build_platform "windows" "amd64"
-                build_platform "windows" "arm64"
+                print_warning "Windows ARM64/386 builds may have compatibility issues"
                 ;;
             "darwin")
                 build_platform "darwin" "amd64"
@@ -122,7 +155,6 @@ build_specific() {
                 ;;
             "freebsd")
                 build_platform "freebsd" "amd64"
-                build_platform "freebsd" "arm64"
                 ;;
             *)
                 print_error "Unsupported platform: $PLATFORM"
@@ -130,13 +162,19 @@ build_specific() {
                 ;;
         esac
     else
-        build_platform "$PLATFORM" "$ARCH"
+        if supports_cgo "$PLATFORM" "$ARCH"; then
+            build_platform "$PLATFORM" "$ARCH"
+        else
+            print_warning "CGO not supported for ${PLATFORM}/${ARCH}"
+            print_warning "Building without CGO (SQLite will not work)"
+            build_platform "$PLATFORM" "$ARCH"
+        fi
     fi
 }
 
 # Show help
 show_help() {
-    echo "Cross-platform build script for Digiflazz Gateway"
+    echo "Safe CGO build script for Digiflazz Gateway"
     echo ""
     echo "Usage: $0 [platform] [arch] [version]"
     echo ""
@@ -145,23 +183,27 @@ show_help() {
     echo "  arch        Target architecture (amd64, arm64, arm, all)"
     echo "  version     Version tag (default: latest)"
     echo ""
+    echo "CGO Support:"
+    echo "  - linux/amd64: ✅ CGO supported"
+    echo "  - linux/arm64: ❌ CGO not supported (cross-compilation issues)"
+    echo "  - windows/amd64: ✅ CGO supported"
+    echo "  - windows/arm64: ⚠️  CGO may have issues"
+    echo "  - darwin/amd64: ✅ CGO supported"
+    echo "  - darwin/arm64: ✅ CGO supported"
+    echo ""
     echo "Examples:"
-    echo "  $0                          # Build for all platforms"
-    echo "  $0 linux                    # Build for all Linux architectures"
+    echo "  $0                          # Build for all CGO-safe platforms"
+    echo "  $0 linux                    # Build for Linux amd64"
     echo "  $0 windows amd64           # Build for Windows x64"
     echo "  $0 darwin arm64            # Build for macOS Apple Silicon"
     echo "  $0 linux amd64 v1.0.0      # Build for Linux x64 with version"
     echo ""
-    echo "Supported platforms:"
-    echo "  - linux (amd64, arm64, arm)"
-    echo "  - windows (amd64, arm64)"
-    echo "  - darwin (amd64, arm64)"
-    echo "  - freebsd (amd64, arm64)"
+    echo "For ARM64 builds, use GitHub Actions with native runners"
 }
 
 # Main execution
 main() {
-    print_status "Digiflazz Gateway Cross-Platform Build"
+    print_status "Digiflazz Gateway Safe CGO Build"
     print_status "Platform: $PLATFORM"
     print_status "Architecture: $ARCH"
     print_status "Version: $VERSION"
@@ -205,4 +247,3 @@ fi
 
 # Run main function
 main
-

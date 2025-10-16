@@ -1,0 +1,35 @@
+# Dockerfile for Windows build with CGO support
+# This allows building Windows binaries with CGO from any platform
+
+FROM golang:1.21-windowsservercore-ltsc2022
+
+# Set working directory
+WORKDIR /app
+
+# Install Windows build tools
+RUN powershell -Command "Install-Module -Name Chocolatey -Force; Install-Package -Name mingw -Force"
+
+# Install Git and other tools
+RUN choco install git -y
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Set environment variables for Windows build with CGO
+ENV CGO_ENABLED=1
+ENV GOOS=windows
+ENV GOARCH=amd64
+ENV CC=gcc
+ENV CXX=g++
+
+# Build the application
+RUN go build -ldflags "-X main.version=latest -X main.buildTime=$(Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ')" -o gateway-digiflazz-windows-amd64.exe ./cmd/server
+
+# The binary will be available in the container
+CMD ["dir"]

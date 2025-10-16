@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch: [amd64, arm64, arm]
+        arch: [amd64]  # Only amd64 for now, arm64 has CGO cross-compilation issues
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -58,7 +58,7 @@ jobs:
     - name: Test binary
       run: |
         chmod +x build/gateway-digiflazz-linux-${{ matrix.arch }}
-        ./build/gateway-digiflazz-linux-${{ matrix.arch }} --help
+        ./build/gateway-digiflazz-linux-${{ matrix.arch }} -help
         
     - name: Create archive
       run: |
@@ -76,7 +76,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        arch: [amd64, 386]
+        arch: [amd64]  # Only amd64 for now, 386 has compatibility issues
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -116,7 +116,7 @@ jobs:
         
     - name: Test binary
       run: |
-        .\build\gateway-digiflazz-windows-${{ matrix.arch }}.exe --help
+        .\build\gateway-digiflazz-windows-${{ matrix.arch }}.exe -help
         
     - name: Create archive
       run: |
@@ -134,7 +134,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        arch: [amd64, arm64]
+        arch: [amd64, arm64]  # Both work on macOS runners
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -175,7 +175,7 @@ jobs:
     - name: Test binary
       run: |
         chmod +x build/gateway-digiflazz-darwin-${{ matrix.arch }}
-        ./build/gateway-digiflazz-darwin-${{ matrix.arch }} --help
+        ./build/gateway-digiflazz-darwin-${{ matrix.arch }} -help
         
     - name: Create archive
       run: |

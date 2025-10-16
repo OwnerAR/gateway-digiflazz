@@ -115,6 +115,10 @@ jobs:
             -o "${{ env.BINARY_NAME }}-windows-${{ matrix.arch }}.exe" `
             ./cmd/server
 
+      - name: Test Windows ${{ matrix.arch }} binary
+        run: |
+          .\${{ env.BINARY_NAME }}-windows-${{ matrix.arch }}.exe -help
+
       - name: Upload Windows ${{ matrix.arch }} artifact
         uses: actions/upload-artifact@v4
         with:

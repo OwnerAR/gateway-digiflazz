@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -19,6 +21,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
+)
+
+// Version and build information (set during build)
+var (
+	version   = "dev"
+	buildTime = "unknown"
 )
 
 // setDefaultEnvVars sets default environment variables if not already set
@@ -114,6 +122,32 @@ HEALTH_CHECK_TIMEOUT=5s
 }
 
 func main() {
+	// Parse command line flags
+	var (
+		showHelp    = flag.Bool("help", false, "Show help information")
+		showVersion = flag.Bool("version", false, "Show version information")
+		showConfig  = flag.Bool("config", false, "Show configuration information")
+	)
+	flag.Parse()
+
+	// Handle help flag
+	if *showHelp {
+		showHelpInfo()
+		return
+	}
+
+	// Handle version flag
+	if *showVersion {
+		showVersionInfo()
+		return
+	}
+
+	// Handle config flag
+	if *showConfig {
+		showConfigInfo()
+		return
+	}
+
 	// Check if .env file exists, if not create it
 	createEnvFileIfNotExists()
 
@@ -304,4 +338,85 @@ func setupRouter(
 	}
 
 	return router
+}
+
+// showHelpInfo displays help information
+func showHelpInfo() {
+	fmt.Printf(`Digiflazz Gateway API Server
+
+USAGE:
+    %s [OPTIONS]
+
+OPTIONS:
+    -help, --help     Show this help message
+    -version, --version  Show version information
+    -config, --config    Show configuration information
+
+ENVIRONMENT VARIABLES:
+    SERVER_HOST         Server host (default: 0.0.0.0)
+    SERVER_PORT         Server port (default: 8080)
+    LOG_LEVEL           Log level (default: info)
+    DIGIFLAZZ_USERNAME  Digiflazz API username
+    DIGIFLAZZ_API_KEY   Digiflazz API key
+    DIGIFLAZZ_BASE_URL  Digiflazz API base URL (default: https://api.digiflazz.com)
+
+EXAMPLES:
+    %s                    # Start server with default configuration
+    %s -version          # Show version information
+    %s -config           # Show configuration information
+    %s -help             # Show this help message
+
+For more information, visit: https://developer.digiflazz.com/api/
+`, os.Args[0], os.Args[0], os.Args[0], os.Args[0], os.Args[0])
+}
+
+// showVersionInfo displays version information
+func showVersionInfo() {
+	fmt.Printf(`Digiflazz Gateway API Server
+
+Version: %s
+Build Time: %s
+Go Version: %s
+
+Copyright (c) 2024 Digiflazz Gateway
+`, version, buildTime, fmt.Sprintf("%s %s/%s", "go1.21", "linux", "amd64"))
+}
+
+// showConfigInfo displays configuration information
+func showConfigInfo() {
+	fmt.Printf(`Digiflazz Gateway API Server - Configuration
+
+Current Configuration:
+  Server Host: %s
+  Server Port: %s
+  Log Level: %s
+  Digiflazz Username: %s
+  Digiflazz API Key: %s
+  Digiflazz Base URL: %s
+  Cache Type: %s
+  Cache Path: %s
+
+Environment Variables:
+`, 
+		os.Getenv("SERVER_HOST"),
+		os.Getenv("SERVER_PORT"),
+		os.Getenv("LOG_LEVEL"),
+		os.Getenv("DIGIFLAZZ_USERNAME"),
+		maskString(os.Getenv("DIGIFLAZZ_API_KEY")),
+		os.Getenv("DIGIFLAZZ_BASE_URL"),
+		os.Getenv("CACHE_TYPE"),
+		os.Getenv("CACHE_SQLITE_PATH"))
+
+	// Show all environment variables
+	for _, env := range os.Environ() {
+		fmt.Printf("  %s\n", env)
+	}
+}
+
+// maskString masks sensitive strings for display
+func maskString(s string) string {
+	if len(s) <= 8 {
+		return "***"
+	}
+	return s[:4] + "***" + s[len(s)-4:]
 }

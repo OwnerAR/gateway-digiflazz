@@ -64,7 +64,7 @@ jobs:
         
     - name: Test binary
       run: |
-        .\build\gateway-digiflazz-windows-${{ matrix.arch }}.exe --help
+        .\build\gateway-digiflazz-windows-${{ matrix.arch }}.exe -help
         
     - name: Create archive
       run: |

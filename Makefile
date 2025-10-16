@@ -20,6 +20,12 @@ build-all:
 	@chmod +x scripts/build.sh
 	@./scripts/build.sh all all $(VERSION)
 
+# Build for all platforms (CGO-safe)
+build-all-safe:
+	@echo "Building for all platforms (CGO-safe)..."
+	@chmod +x scripts/build-cgo-safe.sh
+	@./scripts/build-cgo-safe.sh all all $(VERSION)
+
 # Build for Linux
 build-linux:
 	@echo "Building for Linux..."
@@ -31,6 +37,30 @@ build-windows:
 	@echo "Building for Windows..."
 	@chmod +x scripts/build.sh
 	@./scripts/build.sh windows all $(VERSION)
+
+# Build for Windows with CGO using Wine
+build-windows-cgo:
+	@echo "Building for Windows with CGO (using Wine)..."
+	@chmod +x scripts/build-windows-wine.sh
+	@./scripts/build-windows-wine.sh $(VERSION)
+
+# Setup GitHub Actions
+setup-github-actions:
+	@echo "Setting up GitHub Actions..."
+	@chmod +x scripts/setup-github-actions.sh
+	@./scripts/setup-github-actions.sh
+
+# Update GitHub Actions to latest versions
+update-github-actions:
+	@echo "Updating GitHub Actions to latest versions..."
+	@chmod +x scripts/update-github-actions.sh
+	@./scripts/update-github-actions.sh
+
+# Test binary functionality
+test-binary:
+	@echo "Testing binary functionality..."
+	@chmod +x scripts/test-binary.sh
+	@./scripts/test-binary.sh bin/$(BINARY_NAME)
 
 # Build for macOS
 build-darwin:
@@ -131,6 +161,10 @@ help:
 	@echo "  build-all          - Build for all platforms"
 	@echo "  build-linux        - Build for Linux (all architectures)"
 	@echo "  build-windows      - Build for Windows (all architectures)"
+	@echo "  build-windows-cgo  - Build for Windows with CGO using Wine"
+	@echo "  setup-github-actions - Setup GitHub Actions workflows"
+	@echo "  update-github-actions - Update GitHub Actions to latest versions"
+	@echo "  test-binary       - Test binary functionality (help, version, config flags)"
 	@echo "  build-darwin       - Build for macOS (all architectures)"
 	@echo "  build-freebsd      - Build for FreeBSD (all architectures)"
 	@echo "  build-platform     - Build for specific platform (PLATFORM=linux ARCH=amd64)"
