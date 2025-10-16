@@ -1,0 +1,208 @@
+name: Build All Platforms
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag'
+        required: false
+        default: 'latest'
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64, arm]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Install dependencies
+      run: |
+        go mod download
+        go mod tidy
+        
+    - name: Set up CGO environment
+      run: |
+        echo "CGO_ENABLED=1" >> $GITHUB_ENV
+        echo "GOOS=linux" >> $GITHUB_ENV
+        echo "GOARCH=${{ matrix.arch }}" >> $GITHUB_ENV
+        
+    - name: Build for Linux ${{ matrix.arch }}
+      run: |
+        VERSION="${{ github.event.inputs.version || 'latest' }}"
+        BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        
+        mkdir -p build
+        go build -ldflags "-X main.version=$VERSION -X main.buildTime=$BUILD_TIME" -o "build/gateway-digiflazz-linux-${{ matrix.arch }}" ./cmd/server
+        
+    - name: Test binary
+      run: |
+        chmod +x build/gateway-digiflazz-linux-${{ matrix.arch }}
+        ./build/gateway-digiflazz-linux-${{ matrix.arch }} --help
+        
+    - name: Create archive
+      run: |
+        tar -czf "build/gateway-digiflazz-linux-${{ matrix.arch }}.tar.gz" -C build "gateway-digiflazz-linux-${{ matrix.arch }}"
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: gateway-digiflazz-linux-${{ matrix.arch }}
+        path: |
+          build/gateway-digiflazz-linux-${{ matrix.arch }}
+          build/gateway-digiflazz-linux-${{ matrix.arch }}.tar.gz
+
+  build-windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [amd64, 386]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Install dependencies
+      run: |
+        go mod download
+        go mod tidy
+        
+    - name: Set up CGO environment
+      run: |
+        echo "CGO_ENABLED=1" >> $env:GITHUB_ENV
+        echo "GOOS=windows" >> $env:GITHUB_ENV
+        echo "GOARCH=${{ matrix.arch }}" >> $env:GITHUB_ENV
+        
+    - name: Build for Windows ${{ matrix.arch }}
+      run: |
+        $version = "${{ github.event.inputs.version || 'latest' }}"
+        $buildTime = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+        
+        New-Item -ItemType Directory -Path "build" -Force
+        go build -ldflags "-X main.version=$version -X main.buildTime=$buildTime" -o "build/gateway-digiflazz-windows-${{ matrix.arch }}.exe" ./cmd/server
+        
+    - name: Test binary
+      run: |
+        .\build\gateway-digiflazz-windows-${{ matrix.arch }}.exe --help
+        
+    - name: Create archive
+      run: |
+        Compress-Archive -Path "build\gateway-digiflazz-windows-${{ matrix.arch }}.exe" -DestinationPath "build\gateway-digiflazz-windows-${{ matrix.arch }}.zip"
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: gateway-digiflazz-windows-${{ matrix.arch }}
+        path: |
+          build/gateway-digiflazz-windows-${{ matrix.arch }}.exe
+          build/gateway-digiflazz-windows-${{ matrix.arch }}.zip
+
+  build-macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Install dependencies
+      run: |
+        go mod download
+        go mod tidy
+        
+    - name: Set up CGO environment
+      run: |
+        echo "CGO_ENABLED=1" >> $GITHUB_ENV
+        echo "GOOS=darwin" >> $GITHUB_ENV
+        echo "GOARCH=${{ matrix.arch }}" >> $GITHUB_ENV
+        
+    - name: Build for macOS ${{ matrix.arch }}
+      run: |
+        VERSION="${{ github.event.inputs.version || 'latest' }}"
+        BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        
+        mkdir -p build
+        go build -ldflags "-X main.version=$VERSION -X main.buildTime=$BUILD_TIME" -o "build/gateway-digiflazz-darwin-${{ matrix.arch }}" ./cmd/server
+        
+    - name: Test binary
+      run: |
+        chmod +x build/gateway-digiflazz-darwin-${{ matrix.arch }}
+        ./build/gateway-digiflazz-darwin-${{ matrix.arch }} --help
+        
+    - name: Create archive
+      run: |
+        tar -czf "build/gateway-digiflazz-darwin-${{ matrix.arch }}.tar.gz" -C build "gateway-digiflazz-darwin-${{ matrix.arch }}"
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: gateway-digiflazz-darwin-${{ matrix.arch }}
+        path: |
+          build/gateway-digiflazz-darwin-${{ matrix.arch }}
+          build/gateway-digiflazz-darwin-${{ matrix.arch }}.tar.gz
+
+  create-release:
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      
+    - name: Create release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          **/*.tar.gz
+          **/*.zip
+          **/*.exe
+        draft: false
+        prerelease: false
