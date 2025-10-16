@@ -58,6 +58,9 @@ update_workflow_actions() {
     sed -i '' 's/codecov\/codecov-action@v2/codecov\/codecov-action@v4/g' "$workflow_file"
     sed -i '' 's/codecov\/codecov-action@v3/codecov\/codecov-action@v4/g' "$workflow_file"
     
+    # Remove or replace problematic actions
+    sed -i '' 's/securecodewarrior\/github-action-gosec@master/securecodewarrior\/gosec-action@master/g' "$workflow_file" || true
+    
     # Check if file was modified
     if ! cmp -s "$workflow_file" "${workflow_file}.backup"; then
         print_success "Updated actions in $workflow_file"
@@ -86,6 +89,7 @@ check_deprecated_actions() {
         "actions/setup-go@v4"
         "actions/checkout@v3"
         "codecov/codecov-action@v3"
+        "securecodewarrior/github-action-gosec"
     )
     
     local found_deprecated=false
