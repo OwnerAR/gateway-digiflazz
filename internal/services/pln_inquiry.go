@@ -39,7 +39,7 @@ func NewPLNInquiryService(client *digiflazz.Client, logger *logrus.Logger, cache
 		cache:           cache,
 		config: models.PLNInquiryConfig{
 			CacheEnabled:   true,
-			CacheTTL:       24 * time.Hour, // Cache for 24 hours
+			CacheTTL:       0, // No expiration for static PLN data
 			CacheKeyPrefix: "pln_inquiry:",
 		},
 		stats: &models.PLNInquiryStats{},
@@ -72,6 +72,9 @@ func (s *PLNInquiryService) InquiryPLN(req models.PLNInquiryRequest) (*models.PL
 			// Build response with current ref_id
 			response := s.buildResponseFromCache(cached)
 			response.Data.RefID = req.RefID // Use current ref_id
+			response.Data.Message = cached.Message // Ensure message is included
+			response.Message = "PLN inquiry completed successfully (cached)"
+			response.Status = 1
 			return response, nil
 		}
 		s.stats.CacheMisses++
@@ -100,10 +103,26 @@ func (s *PLNInquiryService) InquiryPLN(req models.PLNInquiryRequest) (*models.PL
 	// Update response time
 	s.updateResponseTime(time.Since(startTime))
 
+	// Ensure response has proper structure for cache miss
+	if resp.Data.RefID == "" {
+		resp.Data.RefID = req.RefID
+	}
+	if resp.Data.Message == "" && resp.Data.RC == "00" {
+		resp.Data.Message = "Transaksi Sukses"
+	}
+	if resp.Message == "" {
+		resp.Message = "PLN inquiry completed successfully"
+	}
+	if resp.Status == 0 && resp.Data.RC == "00" {
+		resp.Status = 1
+	}
+
 	s.logger.WithFields(logrus.Fields{
 		"customer_no": req.CustomerNo,
 		"rc":          resp.Data.RC,
 		"status":      resp.Data.Status,
+		"ref_id":      resp.Data.RefID,
+		"message":     resp.Data.Message,
 		"cached":      s.config.CacheEnabled,
 	}).Info("PLN inquiry completed")
 
@@ -125,8 +144,8 @@ func (s *PLNInquiryService) getFromCache(customerNo string) (*models.PLNInquiryC
 		return nil, err
 	}
 
-	// Check if cache is expired
-	if time.Now().After(cache.ExpiresAt) {
+	// Check if cache is expired (only if ExpiresAt is set)
+	if !cache.ExpiresAt.IsZero() && time.Now().After(cache.ExpiresAt) {
 		// Delete expired cache
 		s.cache.Delete(ctx, key)
 		return nil, fmt.Errorf("cache expired")
@@ -151,7 +170,7 @@ func (s *PLNInquiryService) setToCache(customerNo string, refID string, resp *mo
 		RC:           resp.Data.RC,
 		Message:      resp.Data.Message,
 		CachedAt:     time.Now(),
-		ExpiresAt:    time.Now().Add(s.config.CacheTTL),
+		ExpiresAt:    time.Time{}, // No expiration for static PLN data
 	}
 
 	cacheData, err := json.Marshal(cache)
@@ -159,7 +178,8 @@ func (s *PLNInquiryService) setToCache(customerNo string, refID string, resp *mo
 		return err
 	}
 
-	return s.cache.Set(ctx, key, string(cacheData), s.config.CacheTTL)
+	// Use 0 TTL for permanent cache (static PLN data)
+	return s.cache.Set(ctx, key, string(cacheData), 0)
 }
 
 // getCacheKey generates cache key for customer number
@@ -191,7 +211,7 @@ func (s *PLNInquiryService) buildResponseFromCache(cache *models.PLNInquiryCache
 			Name:         cache.Name,
 			SegmentPower: cache.SegmentPower,
 		},
-		Message: "Success",
+		Message: "PLN inquiry completed successfully (cached)",
 		Status:  1,
 	}
 }

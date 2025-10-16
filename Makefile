@@ -91,6 +91,11 @@ test-pln-api:
 	@echo "Testing PLN API endpoint..."
 	@scripts/test-pln-api.bat
 
+# Test cache behavior
+test-cache-behavior:
+	@echo "Testing cache behavior..."
+	@scripts/test-cache-behavior.bat
+
 # Debug Windows binary
 debug-windows:
 	@echo "Debugging Windows binary..."

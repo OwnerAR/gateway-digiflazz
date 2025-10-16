@@ -50,7 +50,8 @@ func (s *SQLiteCache) createTable() error {
 
 // Get retrieves a value from cache
 func (s *SQLiteCache) Get(ctx context.Context, key string) (string, error) {
-	query := `SELECT data FROM pln_inquiry_cache WHERE customer_no = ? AND expires_at > ?`
+	// Handle permanent cache (TTL = 0) by checking expires_at = '0001-01-01 00:00:00'
+	query := `SELECT data FROM pln_inquiry_cache WHERE customer_no = ? AND (expires_at > ? OR expires_at = '0001-01-01 00:00:00')`
 	
 	var data string
 	err := s.db.QueryRowContext(ctx, query, key, time.Now()).Scan(&data)
@@ -67,7 +68,14 @@ func (s *SQLiteCache) Get(ctx context.Context, key string) (string, error) {
 // Set stores a value in cache with TTL
 func (s *SQLiteCache) Set(ctx context.Context, key string, value string, ttl time.Duration) error {
 	now := time.Now()
-	expiresAt := now.Add(ttl)
+	var expiresAt time.Time
+	
+	if ttl == 0 {
+		// Permanent cache - use zero time
+		expiresAt = time.Time{}
+	} else {
+		expiresAt = now.Add(ttl)
+	}
 	
 	query := `
 	INSERT OR REPLACE INTO pln_inquiry_cache (customer_no, data, created_at, expires_at)
