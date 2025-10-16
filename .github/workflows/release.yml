@@ -1,0 +1,130 @@
+name: Create Release
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+      prerelease:
+        description: 'Mark as prerelease'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+        
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Install dependencies
+      run: |
+        go mod download
+        go mod tidy
+        
+    - name: Build Linux AMD64
+      run: |
+        VERSION="${{ github.event.inputs.version || github.ref_name }}"
+        BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        
+        mkdir -p build
+        CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
+          -ldflags "-X main.version=$VERSION -X main.buildTime=$BUILD_TIME" \
+          -o "build/gateway-digiflazz-linux-amd64" ./cmd/server
+        
+    - name: Build Windows AMD64
+      run: |
+        VERSION="${{ github.event.inputs.version || github.ref_name }}"
+        BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        
+        CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build \
+          -ldflags "-X main.version=$VERSION -X main.buildTime=$BUILD_TIME" \
+          -o "build/gateway-digiflazz-windows-amd64.exe" ./cmd/server
+        
+    - name: Build macOS AMD64
+      run: |
+        VERSION="${{ github.event.inputs.version || github.ref_name }}"
+        BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        
+        CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build \
+          -ldflags "-X main.version=$VERSION -X main.buildTime=$BUILD_TIME" \
+          -o "build/gateway-digiflazz-darwin-amd64" ./cmd/server
+        
+    - name: Build macOS ARM64
+      run: |
+        VERSION="${{ github.event.inputs.version || github.ref_name }}"
+        BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        
+        CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build \
+          -ldflags "-X main.version=$VERSION -X main.buildTime=$BUILD_TIME" \
+          -o "build/gateway-digiflazz-darwin-arm64" ./cmd/server
+        
+    - name: Create archives
+      run: |
+        # Linux
+        tar -czf "build/gateway-digiflazz-linux-amd64.tar.gz" -C build "gateway-digiflazz-linux-amd64"
+        
+        # Windows
+        zip "build/gateway-digiflazz-windows-amd64.zip" "build/gateway-digiflazz-windows-amd64.exe"
+        
+        # macOS
+        tar -czf "build/gateway-digiflazz-darwin-amd64.tar.gz" -C build "gateway-digiflazz-darwin-amd64"
+        tar -czf "build/gateway-digiflazz-darwin-arm64.tar.gz" -C build "gateway-digiflazz-darwin-arm64"
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.event.inputs.version || github.ref_name }}
+        name: Release ${{ github.event.inputs.version || github.ref_name }}
+        body: |
+          ## Digiflazz Gateway API Server
+          
+          ### What's Changed
+          - Windows build with CGO support for SQLite
+          - Command line flags support (--help, --version, --config)
+          - Cross-platform builds for Linux, Windows, and macOS
+          - GitHub Actions CI/CD pipeline
+          
+          ### Downloads
+          - **Linux AMD64**: gateway-digiflazz-linux-amd64.tar.gz
+          - **Windows AMD64**: gateway-digiflazz-windows-amd64.zip
+          - **macOS AMD64**: gateway-digiflazz-darwin-amd64.tar.gz
+          - **macOS ARM64**: gateway-digiflazz-darwin-arm64.tar.gz
+          
+          ### Usage
+          ```bash
+          # Extract and run
+          tar -xzf gateway-digiflazz-linux-amd64.tar.gz
+          ./gateway-digiflazz-linux-amd64 -help
+          ```
+          
+          ### Requirements
+          - CGO enabled for SQLite support
+          - Windows: Visual C++ Redistributable
+          - Linux/macOS: Standard C library
+        files: |
+          build/*.tar.gz
+          build/*.zip
+          build/*.exe
+        draft: false
+        prerelease: ${{ github.event.inputs.prerelease }}
+        generate_release_notes: true

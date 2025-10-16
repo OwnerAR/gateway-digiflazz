@@ -62,6 +62,20 @@ test-binary:
 	@chmod +x scripts/test-binary.sh
 	@./scripts/test-binary.sh bin/$(BINARY_NAME)
 
+# Create git tag for release
+create-tag:
+	@echo "Creating git tag for release..."
+	@git tag -a $(VERSION) -m "Release $(VERSION)"
+	@git push origin $(VERSION)
+
+# Create release using GitHub CLI
+create-release:
+	@echo "Creating GitHub release..."
+	@gh release create $(VERSION) \
+		--title "Release $(VERSION)" \
+		--notes "Digiflazz Gateway API Server $(VERSION)" \
+		build/*.tar.gz build/*.zip build/*.exe
+
 # Build for macOS
 build-darwin:
 	@echo "Building for macOS..."
@@ -165,6 +179,8 @@ help:
 	@echo "  setup-github-actions - Setup GitHub Actions workflows"
 	@echo "  update-github-actions - Update GitHub Actions to latest versions"
 	@echo "  test-binary       - Test binary functionality (help, version, config flags)"
+	@echo "  create-tag        - Create git tag for release (VERSION=v1.0.0)"
+	@echo "  create-release    - Create GitHub release with binaries"
 	@echo "  build-darwin       - Build for macOS (all architectures)"
 	@echo "  build-freebsd      - Build for FreeBSD (all architectures)"
 	@echo "  build-platform     - Build for specific platform (PLATFORM=linux ARCH=amd64)"

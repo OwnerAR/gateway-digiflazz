@@ -220,37 +220,30 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
 
-      - name: Create release archives
-        run: |
-          mkdir -p release
-          
-          # Linux
-          for arch in amd64 arm64 arm; do
-            if [ -f "${{ env.BINARY_NAME }}-linux-$arch" ]; then
-              tar -czf "release/${{ env.BINARY_NAME }}-linux-$arch.tar.gz" "${{ env.BINARY_NAME }}-linux-$arch"
-            fi
-          done
-          
-          # Windows
-          for arch in amd64 arm64; do
-            if [ -f "${{ env.BINARY_NAME }}-windows-$arch.exe" ]; then
-              zip "release/${{ env.BINARY_NAME }}-windows-$arch.zip" "${{ env.BINARY_NAME }}-windows-$arch.exe"
-            fi
-          done
-          
-          # macOS
-          for arch in amd64 arm64; do
-            if [ -f "${{ env.BINARY_NAME }}-darwin-$arch" ]; then
-              tar -czf "release/${{ env.BINARY_NAME }}-darwin-$arch.tar.gz" "${{ env.BINARY_NAME }}-darwin-$arch"
-            fi
-          done
-          
-          # FreeBSD
-          for arch in amd64 arm64; do
-            if [ -f "${{ env.BINARY_NAME }}-freebsd-$arch" ]; then
-              tar -czf "release/${{ env.BINARY_NAME }}-freebsd-$arch.tar.gz" "${{ env.BINARY_NAME }}-freebsd-$arch"
-            fi
-          done
+    - name: Create release archives
+      run: |
+        mkdir -p release
+        
+        # Linux
+        for arch in amd64; do
+          if [ -f "${{ env.BINARY_NAME }}-linux-$arch" ]; then
+            tar -czf "release/${{ env.BINARY_NAME }}-linux-$arch.tar.gz" "${{ env.BINARY_NAME }}-linux-$arch"
+          fi
+        done
+        
+        # Windows
+        for arch in amd64; do
+          if [ -f "${{ env.BINARY_NAME }}-windows-$arch.exe" ]; then
+            zip "release/${{ env.BINARY_NAME }}-windows-$arch.zip" "${{ env.BINARY_NAME }}-windows-$arch.exe"
+          fi
+        done
+        
+        # macOS
+        for arch in amd64 arm64; do
+          if [ -f "${{ env.BINARY_NAME }}-darwin-$arch" ]; then
+            tar -czf "release/${{ env.BINARY_NAME }}-darwin-$arch.tar.gz" "${{ env.BINARY_NAME }}-darwin-$arch"
+          fi
+        done
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
