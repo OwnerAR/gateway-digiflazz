@@ -1,0 +1,54 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 30s
+  write_timeout: 30s
+  idle_timeout: 120s
+
+digiflazz:
+  base_url: "https://api.digiflazz.com"
+  username: ""
+  api_key: ""
+  ip_whitelist: "52.74.250.133"
+  timeout: 30s
+  retry_attempts: 3
+
+database:
+  host: "localhost"
+  port: 5432
+  name: "digiflazz_gateway"
+  user: ""
+  password: ""
+  ssl_mode: "disable"
+  max_connections: 25
+  max_idle_connections: 5
+  connection_max_lifetime: "1h"
+
+redis:
+  host: "localhost"
+  port: 6379
+  password: ""
+  db: 0
+  pool_size: 10
+  min_idle_connections: 5
+
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"
+  file_path: "logs/app.log"
+  max_size: 100
+  max_backups: 3
+  max_age: 28
+
+security:
+  jwt_secret: ""
+  api_rate_limit: 100
+  cors_origins: ["*"]
+  cors_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+  cors_headers: ["Content-Type", "Authorization"]
+
+monitoring:
+  enable_metrics: true
+  metrics_port: 9090
+  health_check_interval: "30s"

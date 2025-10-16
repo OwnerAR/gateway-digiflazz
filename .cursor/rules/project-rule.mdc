@@ -1,0 +1,259 @@
+---
+alwaysApply: true
+---
+
+# Digiflazz Gateway API - Golang Project Rules
+
+## Project Overview
+Aplikasi gateway untuk integrasi API transaksi ke Digiflazz menggunakan Golang. Aplikasi ini berfungsi sebagai middleware yang menghubungkan sistem internal dengan API Digiflazz untuk berbagai layanan seperti pulsa, token listrik, PDAM, dll.
+
+## API Documentation Reference
+- **Official Documentation**: https://developer.digiflazz.com/api/
+- **IP Whitelist**: 52.74.250.133
+- **Request Format**: JSON
+- **HTTP Method**: POST
+
+## Project Structure Guidelines
+
+### Directory Structure
+```
+gateway-digiflazz/
+├── cmd/                    # Application entry points
+│   └── server/
+│       └── main.go
+├── internal/               # Private application code
+│   ├── config/            # Configuration management
+│   ├── handlers/          # HTTP handlers
+│   ├── services/          # Business logic
+│   ├── models/            # Data models
+│   ├── repositories/      # Data access layer
+│   └── middleware/        # HTTP middleware
+├── pkg/                   # Public library code
+│   ├── digiflazz/         # Digiflazz API client
+│   └── utils/             # Utility functions
+├── api/                   # API definitions
+├── configs/               # Configuration files
+├── docs/                  # Documentation
+├── tests/                 # Test files
+├── go.mod
+├── go.sum
+└── README.md
+```
+
+## Coding Standards
+
+### 1. Go Code Style
+- Follow standard Go formatting with `gofmt`
+- Use meaningful variable and function names
+- Write comprehensive comments for exported functions
+- Use interfaces for dependency injection
+- Implement proper error handling
+
+### 2. API Design Patterns
+- Use clean architecture principles
+- Implement repository pattern for data access
+- Use service layer for business logic
+- Implement proper logging and monitoring
+
+### 3. Digiflazz API Integration
+- Implement all required API endpoints:
+  - **Buyer APIs**: Cek Saldo, Cek Harga, Deposit, Request (Prabayar/Pascabayar)
+  - **Seller APIs**: Request/Response handling, Custom Response
+- Support both Prabayar and Pascabayar transactions
+- Implement proper signature generation for authentication
+- Handle webhooks and callbacks
+
+## Key Features to Implement
+
+### 1. Core Services
+- **Balance Check**: Cek saldo akun
+- **Price List**: Daftar harga produk
+- **Deposit Management**: Kelola deposit
+- **Transaction Processing**: Topup, pembayaran tagihan
+- **Status Checking**: Cek status transaksi
+- **Webhook Handling**: Proses callback dari Digiflazz
+
+### 2. Supported Providers
+- **Prabayar**: Pulsa, Token Listrik, Game Voucher
+- **Pascabayar**: PLN, PDAM, Telkom, dll
+- **Multi-Provider Support**: IRS, FM, Otomax, ST24, Payuni, Sipas, Tiger
+
+### 3. Security & Authentication
+- Implement proper API key management
+- Use secure signature generation
+- Implement rate limiting
+- Add request validation and sanitization
+
+## Configuration Management
+
+### Environment Variables
+```bash
+# Digiflazz API Configuration
+DIGIFLAZZ_USERNAME=your_username
+DIGIFLAZZ_API_KEY=your_api_key
+DIGIFLAZZ_BASE_URL=https://api.digiflazz.com
+DIGIFLAZZ_IP_WHITELIST=52.74.250.133
+
+# Server Configuration
+SERVER_PORT=8080
+SERVER_HOST=0.0.0.0
+LOG_LEVEL=info
+
+# Database Configuration (if needed)
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=digiflazz_gateway
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+```
+
+## Error Handling Standards
+
+### 1. Digiflazz Error Codes
+- Implement proper mapping of Digiflazz response codes
+- Handle timeout and network errors gracefully
+- Implement retry mechanism for failed requests
+- Log all API interactions for debugging
+
+### 2. Custom Error Types
+```go
+type DigiflazzError struct {
+    Code    string `json:"code"`
+    Message string `json:"message"`
+    Details string `json:"details,omitempty"`
+}
+```
+
+## Testing Requirements
+
+### 1. Unit Tests
+- Test all service methods
+- Mock external API calls
+- Test error scenarios
+- Achieve minimum 80% code coverage
+
+### 2. Integration Tests
+- Test actual Digiflazz API integration
+- Test webhook handling
+- Test transaction flows end-to-end
+
+### 3. Test Cases
+- Use Digiflazz test cases from documentation
+- Test both success and failure scenarios
+- Validate response formats
+
+## Logging and Monitoring
+
+### 1. Structured Logging
+- Use JSON format for logs
+- Include request/response IDs
+- Log all API calls to Digiflazz
+- Implement log levels (DEBUG, INFO, WARN, ERROR)
+
+### 2. Metrics and Monitoring
+- Track API response times
+- Monitor success/failure rates
+- Alert on high error rates
+- Track transaction volumes
+
+## Security Best Practices
+
+### 1. API Security
+- Validate all incoming requests
+- Implement proper authentication
+- Use HTTPS for all communications
+- Sanitize user inputs
+
+### 2. Data Protection
+- Encrypt sensitive data at rest
+- Use secure key management
+- Implement proper access controls
+- Regular security audits
+
+## Deployment Guidelines
+
+### 1. Containerization
+- Use Docker for containerization
+- Create multi-stage builds
+- Optimize image size
+- Use non-root user
+
+### 2. Environment Setup
+- Development, staging, production environments
+- Proper configuration management
+- Database migrations
+- Health checks
+
+## Documentation Requirements
+
+### 1. API Documentation
+- Document all endpoints
+- Include request/response examples
+- Document error codes
+- Provide integration guides
+
+### 2. Code Documentation
+- README with setup instructions
+- Code comments for complex logic
+- Architecture diagrams
+- Deployment guides
+
+## Performance Optimization
+
+### 1. Caching Strategy
+- Cache price lists
+- Cache balance information
+- Implement cache invalidation
+- Use Redis for distributed caching
+
+### 2. Database Optimization
+- Proper indexing
+- Query optimization
+- Connection pooling
+- Transaction management
+
+## Compliance and Standards
+
+### 1. Go Best Practices
+- Follow Go idioms and conventions
+- Use proper package organization
+- Implement proper error handling
+- Use context for cancellation
+
+### 2. API Standards
+- RESTful API design
+- Proper HTTP status codes
+- Consistent response formats
+- API versioning strategy
+
+## Development Workflow
+
+### 1. Git Workflow
+- Use feature branches
+- Implement proper commit messages
+- Code review process
+- Automated testing in CI/CD
+
+### 2. Code Quality
+- Use linters (golangci-lint)
+- Implement pre-commit hooks
+- Code formatting with gofmt
+- Static analysis tools
+
+## Maintenance and Updates
+
+### 1. Regular Updates
+- Keep dependencies updated
+- Monitor Digiflazz API changes
+- Regular security patches
+- Performance monitoring
+
+### 2. Backup and Recovery
+- Database backups
+- Configuration backups
+- Disaster recovery plan
+- Data retention policies
+
+---
+
+**Note**: This project rule document should be updated as the project evolves and new requirements are identified. Always refer to the official Digiflazz documentation for the most current API specifications.
