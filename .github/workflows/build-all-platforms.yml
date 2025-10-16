@@ -12,6 +12,11 @@ on:
         required: false
         default: 'latest'
 
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
 jobs:
   build-linux:
     runs-on: ubuntu-latest
@@ -49,7 +54,7 @@ jobs:
         
     - name: Build for Linux ${{ matrix.arch }}
       run: |
-        VERSION="${{ github.event.inputs.version || 'latest' }}"
+        VERSION="${{ github.event.inputs.version || github.ref_name || 'latest' }}"
         BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
         
         mkdir -p build
@@ -108,7 +113,7 @@ jobs:
         
     - name: Build for Windows ${{ matrix.arch }}
       run: |
-        $version = "${{ github.event.inputs.version || 'latest' }}"
+        $version = "${{ github.event.inputs.version || github.ref_name || 'latest' }}"
         $buildTime = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
         
         New-Item -ItemType Directory -Path "build" -Force
@@ -166,7 +171,7 @@ jobs:
         
     - name: Build for macOS ${{ matrix.arch }}
       run: |
-        VERSION="${{ github.event.inputs.version || 'latest' }}"
+        VERSION="${{ github.event.inputs.version || github.ref_name || 'latest' }}"
         BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
         
         mkdir -p build
@@ -192,17 +197,65 @@ jobs:
   create-release:
     needs: [build-linux, build-windows, build-macos]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && github.event.inputs.version != '')
     steps:
     - name: Download all artifacts
       uses: actions/download-artifact@v4
       
+    - name: Check if tag exists
+      run: |
+        TAG_NAME="${{ github.event.inputs.version || github.ref_name }}"
+        if git ls-remote --tags origin | grep -q "refs/tags/$TAG_NAME"; then
+          echo "Tag $TAG_NAME already exists"
+          echo "TAG_EXISTS=true" >> $GITHUB_ENV
+        else
+          echo "Tag $TAG_NAME does not exist"
+          echo "TAG_EXISTS=false" >> $GITHUB_ENV
+        fi
+        
+    - name: Create tag if not exists
+      if: env.TAG_EXISTS == 'false'
+      run: |
+        TAG_NAME="${{ github.event.inputs.version || github.ref_name }}"
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
+        git push origin "$TAG_NAME"
+        
     - name: Create release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
+        tag_name: ${{ github.event.inputs.version || github.ref_name }}
+        name: Release ${{ github.event.inputs.version || github.ref_name }}
+        body: |
+          ## Digiflazz Gateway API Server
+          
+          ### Downloads
+          - **Linux AMD64**: gateway-digiflazz-linux-amd64.tar.gz
+          - **Windows AMD64**: gateway-digiflazz-windows-amd64.zip
+          - **macOS AMD64**: gateway-digiflazz-darwin-amd64.tar.gz
+          - **macOS ARM64**: gateway-digiflazz-darwin-arm64.tar.gz
+          
+          ### Usage
+          ```bash
+          # Linux
+          tar -xzf gateway-digiflazz-linux-amd64.tar.gz
+          ./gateway-digiflazz-linux-amd64 -help
+          
+          # Windows
+          unzip gateway-digiflazz-windows-amd64.zip
+          .\gateway-digiflazz-windows-amd64.exe -help
+          
+          # macOS
+          tar -xzf gateway-digiflazz-darwin-amd64.tar.gz
+          ./gateway-digiflazz-darwin-amd64 -help
+          ```
         files: |
           **/*.tar.gz
           **/*.zip
-          **/*.exe
         draft: false
         prerelease: false
+        generate_release_notes: true
+        overwrite: true
