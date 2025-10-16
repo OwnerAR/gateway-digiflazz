@@ -62,6 +62,47 @@ test-binary:
 	@chmod +x scripts/test-binary.sh
 	@./scripts/test-binary.sh bin/$(BINARY_NAME)
 
+# Test Windows binary
+test-windows:
+	@echo "Testing Windows binary..."
+	@if [ -f "build/$(BINARY_NAME)-windows-amd64.exe" ]; then \
+		echo "Windows binary found, starting test..."; \
+		scripts/test-windows-simple.bat; \
+	else \
+		echo "Windows binary not found. Building first..."; \
+		$(MAKE) build-windows-cgo; \
+		scripts/test-windows-simple.bat; \
+	fi
+
+# Test Windows binary with fixed configuration
+test-windows-fixed:
+	@echo "Testing Windows binary with fixed configuration..."
+	@if [ -f "build/$(BINARY_NAME)-windows-amd64.exe" ]; then \
+		echo "Windows binary found, starting test..."; \
+		scripts/test-windows-fixed.bat; \
+	else \
+		echo "Windows binary not found. Building first..."; \
+		$(MAKE) build-windows-cgo; \
+		scripts/test-windows-fixed.bat; \
+	fi
+
+# Test PLN API endpoint
+test-pln-api:
+	@echo "Testing PLN API endpoint..."
+	@scripts/test-pln-api.bat
+
+# Debug Windows binary
+debug-windows:
+	@echo "Debugging Windows binary..."
+	@if [ -f "build/$(BINARY_NAME)-windows-amd64.exe" ]; then \
+		echo "Starting PowerShell debug script..."; \
+		powershell -ExecutionPolicy Bypass -File scripts/debug-windows.ps1; \
+	else \
+		echo "Windows binary not found. Building first..."; \
+		$(MAKE) build-windows-cgo; \
+		powershell -ExecutionPolicy Bypass -File scripts/debug-windows.ps1; \
+	fi
+
 # Create git tag for release
 create-tag:
 	@echo "Creating git tag for release..."

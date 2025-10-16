@@ -171,7 +171,7 @@ func (c *Client) makeRequest(endpoint string, req interface{}, resp interface{})
 		"api_key_len":  len(c.config.APIKey),
 		"timeout":      c.config.Timeout,
 		"retry_attempts": c.config.RetryAttempts,
-		"user_agent":   c.httpClient.Transport,
+		"user_agent":   userAgent,
 		"platform":     fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
 	}).Info("Digiflazz client configuration")
 

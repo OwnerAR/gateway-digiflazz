@@ -143,6 +143,28 @@ func loadFromEnv(cfg *Config) {
 	if ipWhitelist := os.Getenv("DIGIFLAZZ_IP_WHITELIST"); ipWhitelist != "" {
 		cfg.Digiflazz.IPWhitelist = ipWhitelist
 	}
+	
+	// Timeout configuration
+	if timeoutStr := os.Getenv("DIGIFLAZZ_TIMEOUT"); timeoutStr != "" {
+		if timeout, err := time.ParseDuration(timeoutStr); err == nil {
+			cfg.Digiflazz.Timeout = timeout
+		}
+	}
+	
+	// Retry attempts configuration
+	if retryStr := os.Getenv("DIGIFLAZZ_RETRY_ATTEMPTS"); retryStr != "" {
+		if retry, err := strconv.Atoi(retryStr); err == nil {
+			cfg.Digiflazz.RetryAttempts = retry
+		}
+	}
+	
+	// Set default timeout and retry attempts if not configured
+	if cfg.Digiflazz.Timeout == 0 {
+		cfg.Digiflazz.Timeout = 30 * time.Second
+	}
+	if cfg.Digiflazz.RetryAttempts == 0 {
+		cfg.Digiflazz.RetryAttempts = 3
+	}
 
 	// Database configuration
 	if host := os.Getenv("DB_HOST"); host != "" {

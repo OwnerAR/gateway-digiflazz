@@ -43,6 +43,8 @@ func setDefaultEnvVars() {
 		"DIGIFLAZZ_USERNAME":  "your_username",
 		"DIGIFLAZZ_API_KEY":   "your_api_key",
 		"DIGIFLAZZ_BASE_URL":  "https://api.digiflazz.com",
+		"DIGIFLAZZ_TIMEOUT":   "30s",
+		"DIGIFLAZZ_RETRY_ATTEMPTS": "3",
 		"OTOMAX_SECRET_KEY":   "default-secret-key",
 		"OTOMAX_CALLBACK_URL": "http://localhost:8080/otomax/callback",
 	}
