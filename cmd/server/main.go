@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -121,6 +122,31 @@ HEALTH_CHECK_TIMEOUT=5s
 	}
 }
 
+// getCachePath returns the appropriate cache file path for the current OS
+func getCachePath() string {
+	// Try to get cache path from environment variable first
+	if cachePath := os.Getenv("CACHE_DB_PATH"); cachePath != "" {
+		return cachePath
+	}
+	
+	// Get current working directory
+	workDir, err := os.Getwd()
+	if err != nil {
+		// Fallback to current directory
+		return "cache.db"
+	}
+	
+	// Create cache directory if it doesn't exist
+	cacheDir := filepath.Join(workDir, "data")
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		// If we can't create directory, use current directory
+		return "cache.db"
+	}
+	
+	// Return cache file path in data directory
+	return filepath.Join(cacheDir, "cache.db")
+}
+
 func main() {
 	// Parse command line flags
 	var (
@@ -175,9 +201,13 @@ func main() {
 	// Initialize Digiflazz client
 	digiflazzClient := digiflazz.NewClient(cfg.Digiflazz, logger)
 
-	// Initialize SQLite cache
-	sqliteCache, err := cache.NewSQLiteCache("cache.db")
+	// Initialize SQLite cache with proper path handling
+	cachePath := getCachePath()
+	logger.WithField("cache_path", cachePath).Info("Initializing SQLite cache")
+	
+	sqliteCache, err := cache.NewSQLiteCache(cachePath)
 	if err != nil {
+		logger.WithError(err).WithField("cache_path", cachePath).Error("Failed to initialize SQLite cache")
 		log.Fatalf("Failed to initialize SQLite cache: %v", err)
 	}
 	defer sqliteCache.Close()

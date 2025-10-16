@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"runtime"
+	"strings"
 	"time"
 
 	"gateway-digiflazz/internal/config"
@@ -142,9 +144,10 @@ func (c *Client) makeRequest(endpoint string, req interface{}, resp interface{})
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set headers
+	// Set headers with platform-specific User-Agent
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("User-Agent", "Digiflazz-Gateway/1.0")
+	userAgent := fmt.Sprintf("Digiflazz-Gateway/1.0 (%s/%s)", runtime.GOOS, runtime.GOARCH)
+	httpReq.Header.Set("User-Agent", userAgent)
 
 	// Log request details
 	c.logger.WithFields(logrus.Fields{
@@ -154,6 +157,8 @@ func (c *Client) makeRequest(endpoint string, req interface{}, resp interface{})
 		"payload":      string(jsonData),
 		"payload_size": len(jsonData),
 		"timeout":      c.httpClient.Timeout,
+		"user_agent":   userAgent,
+		"headers":      httpReq.Header,
 	}).Debug("Making request to Digiflazz API")
 	
 	// Log full JSON payload for debugging
@@ -166,6 +171,8 @@ func (c *Client) makeRequest(endpoint string, req interface{}, resp interface{})
 		"api_key_len":  len(c.config.APIKey),
 		"timeout":      c.config.Timeout,
 		"retry_attempts": c.config.RetryAttempts,
+		"user_agent":   c.httpClient.Transport,
+		"platform":     fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
 	}).Info("Digiflazz client configuration")
 
 	// Make request with retry logic
@@ -203,16 +210,38 @@ func (c *Client) makeRequest(endpoint string, req interface{}, resp interface{})
 				"response":    string(body),
 				"endpoint":    endpoint,
 			}).Error("Digiflazz API returned error status")
-			lastErr = fmt.Errorf("HTTP error %d: %s", httpResp.StatusCode, string(body))
+			
+			// Check for specific IP whitelist error
+			if strings.Contains(string(body), "IP Anda tidak kami kenali") {
+				lastErr = fmt.Errorf("IP whitelist error: your IP is not registered in Digiflazz whitelist")
+			} else {
+				lastErr = fmt.Errorf("HTTP error %d: %s", httpResp.StatusCode, string(body))
+			}
 			continue
 		}
 
+		// Log raw response for debugging
+		c.logger.WithFields(logrus.Fields{
+			"endpoint":     endpoint,
+			"raw_response": string(body),
+			"response_len": len(body),
+		}).Debug("Raw response from Digiflazz API")
+
 		// Unmarshal response
 		if err := json.Unmarshal(body, resp); err != nil {
-			c.logger.WithError(err).Error("Failed to unmarshal Digiflazz API response")
+			c.logger.WithError(err).WithFields(logrus.Fields{
+				"endpoint":     endpoint,
+				"raw_response": string(body),
+			}).Error("Failed to unmarshal Digiflazz API response")
 			lastErr = fmt.Errorf("failed to unmarshal response: %w", err)
 			continue
 		}
+
+		// Log unmarshaled response for debugging
+		c.logger.WithFields(logrus.Fields{
+			"endpoint":    endpoint,
+			"unmarshaled": resp,
+		}).Debug("Unmarshaled response from Digiflazz API")
 
 		return nil
 	}
@@ -314,7 +343,32 @@ func (c *Client) InquiryPLN(req models.PLNInquiryRequest) (*models.PLNInquiryRes
 		"rc":          resp.Data.RC,
 		"status":      resp.Data.Status,
 		"message":     resp.Data.Message,
+		"ref_id":      resp.Data.RefID,
+		"meter_no":    resp.Data.MeterNo,
+		"name":        resp.Data.Name,
 	}).Info("PLN inquiry response received from Digiflazz API")
+
+	// Validate response - check for empty or invalid response
+	if resp.Data.RC == "" && resp.Data.Status == "" && resp.Data.Message == "" {
+		c.logger.WithFields(logrus.Fields{
+			"customer_no": req.CustomerNo,
+			"response":    resp,
+		}).Warn("PLN inquiry returned empty response - customer may not exist or API issue")
+		
+		// Return error for empty response
+		return nil, fmt.Errorf("PLN inquiry returned empty response for customer %s - customer may not exist or invalid", req.CustomerNo)
+	}
+
+	// Check for specific error codes
+	if resp.Data.RC != "00" && resp.Data.RC != "" {
+		c.logger.WithFields(logrus.Fields{
+			"customer_no": req.CustomerNo,
+			"rc":          resp.Data.RC,
+			"message":     resp.Data.Message,
+		}).Warn("PLN inquiry returned error code")
+		
+		return nil, fmt.Errorf("PLN inquiry failed: RC=%s, Message=%s", resp.Data.RC, resp.Data.Message)
+	}
 
 	return &resp, nil
 }

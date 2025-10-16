@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"gateway-digiflazz/internal/middleware"
@@ -288,6 +290,22 @@ func (h *OtomaxHandler) InquiryPLN(c *gin.Context) {
 		return
 	}
 
+	// Validate customer number format (PLN customer numbers are typically 11-12 digits)
+	if len(req.CustomerNo) < 10 || len(req.CustomerNo) > 15 {
+		c.JSON(http.StatusBadRequest, models.OtomaxError{
+			Code:    "INVALID_CUSTOMER_NO",
+			Message: "Invalid customer number format. PLN customer numbers should be 10-15 digits",
+		})
+		return
+	}
+
+	// Log request details for debugging
+	h.logger.WithFields(logrus.Fields{
+		"ref_id":      req.RefID,
+		"customer_no": req.CustomerNo,
+		"timestamp":   req.Timestamp,
+	}).Info("Processing PLN inquiry request")
+
 	// Use PLN inquiry service with cache strategy
 	plnReq := models.PLNInquiryRequest{
 		RefID:      req.RefID,
@@ -296,13 +314,40 @@ func (h *OtomaxHandler) InquiryPLN(c *gin.Context) {
 	
 	resp, err := h.plnInquiryService.InquiryPLN(plnReq)
 	if err != nil {
-		h.logger.WithError(err).Error("PLN inquiry failed")
-		middleware.ErrorResponse(c, http.StatusInternalServerError, 
-			"PLN_INQUIRY_FAILED", 
-			"Failed to perform PLN inquiry", 
-			err.Error())
+		h.logger.WithError(err).WithFields(logrus.Fields{
+			"ref_id":      req.RefID,
+			"customer_no": req.CustomerNo,
+		}).Error("PLN inquiry failed")
+		
+		// Check for specific error types
+		if strings.Contains(err.Error(), "customer may not exist") {
+			middleware.ErrorResponse(c, http.StatusNotFound, 
+				"CUSTOMER_NOT_FOUND", 
+				"Customer number not found in PLN system", 
+				fmt.Sprintf("Customer number %s does not exist or is invalid", req.CustomerNo))
+		} else if strings.Contains(err.Error(), "IP whitelist error") {
+			middleware.ErrorResponse(c, http.StatusForbidden, 
+				"IP_NOT_WHITELISTED", 
+				"Server IP not registered in Digiflazz whitelist", 
+				"Please contact Digiflazz to add your server IP to the whitelist")
+		} else {
+			middleware.ErrorResponse(c, http.StatusInternalServerError, 
+				"PLN_INQUIRY_FAILED", 
+				"Failed to perform PLN inquiry", 
+				err.Error())
+		}
 		return
 	}
+
+	// Log successful inquiry
+	h.logger.WithFields(logrus.Fields{
+		"ref_id":      req.RefID,
+		"customer_no": req.CustomerNo,
+		"rc":          resp.Data.RC,
+		"status":      resp.Data.Status,
+		"meter_no":    resp.Data.MeterNo,
+		"name":        resp.Data.Name,
+	}).Info("PLN inquiry completed successfully")
 
 	// Return response with consistent formatting
 	middleware.SuccessResponse(c, resp, "PLN inquiry completed successfully")
