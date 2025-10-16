@@ -16,7 +16,7 @@ on:
         type: boolean
 
 jobs:
-  build-and-release:
+  build-linux:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -51,45 +51,112 @@ jobs:
           -ldflags "-X main.version=$VERSION -X main.buildTime=$BUILD_TIME" \
           -o "build/gateway-digiflazz-linux-amd64" ./cmd/server
         
-    - name: Build Windows AMD64
+    - name: Create Linux archive
       run: |
-        VERSION="${{ github.event.inputs.version || github.ref_name }}"
-        BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-        
-        CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build \
-          -ldflags "-X main.version=$VERSION -X main.buildTime=$BUILD_TIME" \
-          -o "build/gateway-digiflazz-windows-amd64.exe" ./cmd/server
-        
-    - name: Build macOS AMD64
-      run: |
-        VERSION="${{ github.event.inputs.version || github.ref_name }}"
-        BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-        
-        CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build \
-          -ldflags "-X main.version=$VERSION -X main.buildTime=$BUILD_TIME" \
-          -o "build/gateway-digiflazz-darwin-amd64" ./cmd/server
-        
-    - name: Build macOS ARM64
-      run: |
-        VERSION="${{ github.event.inputs.version || github.ref_name }}"
-        BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-        
-        CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build \
-          -ldflags "-X main.version=$VERSION -X main.buildTime=$BUILD_TIME" \
-          -o "build/gateway-digiflazz-darwin-arm64" ./cmd/server
-        
-    - name: Create archives
-      run: |
-        # Linux
         tar -czf "build/gateway-digiflazz-linux-amd64.tar.gz" -C build "gateway-digiflazz-linux-amd64"
         
-        # Windows
-        zip "build/gateway-digiflazz-windows-amd64.zip" "build/gateway-digiflazz-windows-amd64.exe"
+    - name: Upload Linux artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: gateway-digiflazz-linux-amd64
+        path: build/gateway-digiflazz-linux-amd64.tar.gz
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
         
-        # macOS
-        tar -czf "build/gateway-digiflazz-darwin-amd64.tar.gz" -C build "gateway-digiflazz-darwin-amd64"
-        tar -czf "build/gateway-digiflazz-darwin-arm64.tar.gz" -C build "gateway-digiflazz-darwin-arm64"
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Install dependencies
+      run: |
+        go mod download
+        go mod tidy
         
+    - name: Build Windows AMD64
+      run: |
+        $version = "${{ github.event.inputs.version || github.ref_name }}"
+        $buildTime = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+        
+        New-Item -ItemType Directory -Path "build" -Force
+        go build -ldflags "-X main.version=$version -X main.buildTime=$buildTime" -o "build/gateway-digiflazz-windows-amd64.exe" ./cmd/server
+        
+    - name: Create Windows archive
+      run: |
+        Compress-Archive -Path "build\gateway-digiflazz-windows-amd64.exe" -DestinationPath "build\gateway-digiflazz-windows-amd64.zip"
+        
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: gateway-digiflazz-windows-amd64
+        path: build/gateway-digiflazz-windows-amd64.zip
+
+  build-macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+        
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Install dependencies
+      run: |
+        go mod download
+        go mod tidy
+        
+    - name: Build macOS ${{ matrix.arch }}
+      run: |
+        VERSION="${{ github.event.inputs.version || github.ref_name }}"
+        BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        
+        mkdir -p build
+        go build -ldflags "-X main.version=$VERSION -X main.buildTime=$BUILD_TIME" -o "build/gateway-digiflazz-darwin-${{ matrix.arch }}" ./cmd/server
+        
+    - name: Create macOS archive
+      run: |
+        tar -czf "build/gateway-digiflazz-darwin-${{ matrix.arch }}.tar.gz" -C build "gateway-digiflazz-darwin-${{ matrix.arch }}"
+        
+    - name: Upload macOS artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: gateway-digiflazz-darwin-${{ matrix.arch }}
+        path: build/gateway-digiflazz-darwin-${{ matrix.arch }}.tar.gz
+
+  create-release:
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
@@ -112,9 +179,17 @@ jobs:
           
           ### Usage
           ```bash
-          # Extract and run
+          # Linux
           tar -xzf gateway-digiflazz-linux-amd64.tar.gz
           ./gateway-digiflazz-linux-amd64 -help
+          
+          # Windows
+          unzip gateway-digiflazz-windows-amd64.zip
+          .\gateway-digiflazz-windows-amd64.exe -help
+          
+          # macOS
+          tar -xzf gateway-digiflazz-darwin-amd64.tar.gz
+          ./gateway-digiflazz-darwin-amd64 -help
           ```
           
           ### Requirements
@@ -122,9 +197,8 @@ jobs:
           - Windows: Visual C++ Redistributable
           - Linux/macOS: Standard C library
         files: |
-          build/*.tar.gz
-          build/*.zip
-          build/*.exe
+          **/*.tar.gz
+          **/*.zip
         draft: false
         prerelease: ${{ github.event.inputs.prerelease }}
         generate_release_notes: true
