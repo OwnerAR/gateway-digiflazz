@@ -177,6 +177,11 @@ jobs:
           - Command line flags support (--help, --version, --config)
           - Cross-platform builds for Linux, Windows, and macOS
           - GitHub Actions CI/CD pipeline
+          - PLN Inquiry permanent caching with SQLite
+          - Fixed cache timezone format issue for Windows compatibility
+          - Enhanced debug logging for cache operations
+          - Comprehensive troubleshooting scripts for Windows
+          - Digiflazz API client improvements with proper timeout/retry configuration
           
           ### Downloads
           - **Linux AMD64**: gateway-digiflazz-linux-amd64.tar.gz
@@ -199,10 +204,41 @@ jobs:
           ./gateway-digiflazz-darwin-amd64 -help
           ```
           
+          ### Configuration
+          Set environment variables for optimal performance:
+          ```bash
+          # Digiflazz API Configuration
+          DIGIFLAZZ_TIMEOUT=30s
+          DIGIFLAZZ_RETRY_ATTEMPTS=3
+          DIGIFLAZZ_BASE_URL=https://api.digiflazz.com
+          
+          # Debug logging for troubleshooting
+          LOG_LEVEL=debug
+          ```
+          
           ### Requirements
           - CGO enabled for SQLite support
           - Windows: Visual C++ Redistributable
           - Linux/macOS: Standard C library
+          
+          ### Troubleshooting
+          For Windows users experiencing cache issues:
+          ```bash
+          # Set proper environment variables
+          set DIGIFLAZZ_TIMEOUT=30s
+          set DIGIFLAZZ_RETRY_ATTEMPTS=3
+          set LOG_LEVEL=debug
+          
+          # Clear cache if needed
+          del data\cache.db
+          ```
+          
+          ### Features
+          - **PLN Inquiry API**: Permanent caching for static customer data
+          - **Cache Management**: SQLite-based local cache with debug logging
+          - **Cross-Platform**: Native builds for Windows, Linux, and macOS
+          - **Digiflazz Integration**: Full API support with proper error handling
+          - **Otomax Compatibility**: Seamless integration with Otomax systems
         files: |
           **/*.tar.gz
           **/*.zip

@@ -187,6 +187,9 @@ type DigiflazzError struct {
 - Log User-Agent headers for debugging
 - Log raw API responses for troubleshooting
 - Log cache hit/miss statistics
+- **Cache Debug Logging**: Detailed logging for cache operations (retrieval, storage, expiration checks)
+- **Cache Key Tracking**: Log cache keys and customer numbers for debugging
+- **Cache Data Validation**: Log cache data length and structure validation
 
 ### 2. Metrics and Monitoring
 - Track API response times
@@ -250,6 +253,9 @@ type DigiflazzError struct {
 - **SQLite Cache**: Local file-based cache for single-instance deployments
 - **Cache Consistency**: Ensure consistent response format between cache hit/miss
 - **Cache Statistics**: Track cache hit/miss rates and performance metrics
+- **Cache Key Format**: `pln_inquiry:{customer_no}` for PLN inquiry cache
+- **Timezone Handling**: SQLite cache handles timezone format for permanent cache (`LIKE '0001-01-01%'`)
+- **Cache Debugging**: Comprehensive debug logging for cache operations troubleshooting
 
 ### 2. Database Optimization
 - Proper indexing
@@ -301,6 +307,12 @@ make test-windows-fixed
 # Test cache behavior
 make test-cache-behavior
 
+# Test cache with debug logging
+make test-cache-debug
+
+# Check cache database contents
+make check-cache-db
+
 # Debug Windows issues
 make debug-windows
 ```
@@ -335,6 +347,9 @@ make debug-windows
 - **Cache Inconsistency**: Ensure proper ref_id mapping
 - **Permanent Cache**: PLN data cached without expiration
 - **Response Format**: Consistent structure between cache hit/miss
+- **Cache Miss Repeated**: Fixed SQLite timezone format issue (`LIKE '0001-01-01%'`)
+- **Cache Debug Logging**: Enable `LOG_LEVEL=debug` for detailed cache troubleshooting
+- **Function Signature**: `InquiryPLN(req, refID)` uses 2 parameters for flexibility
 
 ### 3. Common Solutions
 ```bash
@@ -348,6 +363,27 @@ del data\cache.db
 
 # Test with debug logging
 make test-windows-fixed
+
+# Test cache behavior with debug logging
+make test-cache-debug
+
+# Check cache database contents
+make check-cache-db
+```
+
+### 4. Cache Troubleshooting Commands
+```bash
+# Debug cache with detailed logging
+scripts/test-cache-debug-detailed.bat
+
+# Check cache database directly
+scripts/check-cache-db.bat
+
+# Test PLN inquiry with proper configuration
+make test-pln-inquiry-windows
+
+# Debug Windows configuration
+make debug-config-windows
 ```
 
 ## Maintenance and Updates
@@ -391,4 +427,4 @@ git push origin v1.0.0
 
 **Note**: This project rule document should be updated as the project evolves and new requirements are identified. Always refer to the official Digiflazz documentation for the most current API specifications.
 
-**Last Updated**: October 2025 - Added Windows CGO support, permanent caching, enhanced error handling, and comprehensive testing framework.
+**Last Updated**: October 2025 - Added Windows CGO support, permanent caching, enhanced error handling, comprehensive testing framework, and fixed PLN inquiry cache timezone issues with detailed debug logging.
