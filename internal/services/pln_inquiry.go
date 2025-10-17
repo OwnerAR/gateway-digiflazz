@@ -134,22 +134,63 @@ func (s *PLNInquiryService) getFromCache(customerNo string) (*models.PLNInquiryC
 	ctx := context.Background()
 	key := s.getCacheKey(customerNo)
 	
+	s.logger.WithFields(logrus.Fields{
+		"customer_no": customerNo,
+		"cache_key":   key,
+	}).Debug("Attempting to get from cache")
+	
 	cachedData, err := s.cache.Get(ctx, key)
 	if err != nil {
+		s.logger.WithFields(logrus.Fields{
+			"customer_no": customerNo,
+			"cache_key":   key,
+			"error":       err.Error(),
+		}).Debug("Cache get failed")
 		return nil, err
 	}
+	
+	s.logger.WithFields(logrus.Fields{
+		"customer_no": customerNo,
+		"cache_key":   key,
+		"data_length": len(cachedData),
+	}).Debug("Cache data retrieved successfully")
 
 	var cache models.PLNInquiryCache
 	if err := json.Unmarshal([]byte(cachedData), &cache); err != nil {
+		s.logger.WithError(err).WithFields(logrus.Fields{
+			"customer_no": customerNo,
+			"cache_key":   key,
+			"raw_data":    string(cachedData),
+		}).Error("Failed to unmarshal cache data")
 		return nil, err
 	}
 
-	// Check if cache is expired (only if ExpiresAt is set)
+	s.logger.WithFields(logrus.Fields{
+		"customer_no": customerNo,
+		"cache_key":   key,
+		"expires_at":  cache.ExpiresAt,
+		"is_zero":     cache.ExpiresAt.IsZero(),
+		"now":         time.Now(),
+	}).Debug("Cache expiration check")
+
+	// Check if cache is expired (only if ExpiresAt is set and not zero time for permanent cache)
 	if !cache.ExpiresAt.IsZero() && time.Now().After(cache.ExpiresAt) {
+		s.logger.WithFields(logrus.Fields{
+			"customer_no": customerNo,
+			"cache_key":   key,
+			"expires_at":  cache.ExpiresAt,
+		}).Debug("Cache expired, deleting")
 		// Delete expired cache
 		s.cache.Delete(ctx, key)
 		return nil, fmt.Errorf("cache expired")
 	}
+
+	s.logger.WithFields(logrus.Fields{
+		"customer_no": customerNo,
+		"cache_key":   key,
+		"ref_id":      cache.RefID,
+		"rc":          cache.RC,
+	}).Debug("Cache hit - returning cached data")
 
 	return &cache, nil
 }
@@ -158,6 +199,13 @@ func (s *PLNInquiryService) getFromCache(customerNo string) (*models.PLNInquiryC
 func (s *PLNInquiryService) setToCache(customerNo string, refID string, resp *models.PLNInquiryResponse) error {
 	ctx := context.Background()
 	key := s.getCacheKey(customerNo)
+
+	s.logger.WithFields(logrus.Fields{
+		"customer_no": customerNo,
+		"cache_key":   key,
+		"ref_id":      refID,
+		"rc":          resp.Data.RC,
+	}).Debug("Storing PLN inquiry data to cache")
 
 	cache := models.PLNInquiryCache{
 		RefID:        refID,
@@ -175,11 +223,24 @@ func (s *PLNInquiryService) setToCache(customerNo string, refID string, resp *mo
 
 	cacheData, err := json.Marshal(cache)
 	if err != nil {
+		s.logger.WithError(err).Error("Failed to marshal cache data")
 		return err
 	}
 
 	// Use 0 TTL for permanent cache (static PLN data)
-	return s.cache.Set(ctx, key, string(cacheData), 0)
+	err = s.cache.Set(ctx, key, string(cacheData), 0)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to set cache data")
+		return err
+	}
+	
+	s.logger.WithFields(logrus.Fields{
+		"customer_no": customerNo,
+		"cache_key":   key,
+		"data_length": len(cacheData),
+	}).Debug("PLN inquiry data cached successfully")
+	
+	return nil
 }
 
 // getCacheKey generates cache key for customer number

@@ -132,6 +132,23 @@ test-pln-inquiry-windows:
 		scripts/test-pln-inquiry-windows.bat; \
 	fi
 
+# Test cache with debug logging
+test-cache-debug:
+	@echo "Testing cache with debug logging..."
+	@if [ -f "build/$(BINARY_NAME)-windows-amd64.exe" ]; then \
+		echo "Running cache debug test script..."; \
+		scripts/test-cache-debug.bat; \
+	else \
+		echo "Windows binary not found. Building first..."; \
+		$(MAKE) build-windows-cgo; \
+		scripts/test-cache-debug.bat; \
+	fi
+
+# Check cache database contents
+check-cache-db:
+	@echo "Checking cache database contents..."
+	@scripts/check-cache-db.bat
+
 # Create git tag for release
 create-tag:
 	@echo "Creating git tag for release..."
