@@ -14,7 +14,6 @@ type PLNInquiryRequest struct {
 type OtomaxPLNInquiryRequest struct {
 	RefID      string `form:"ref_id" json:"ref_id" binding:"required"`
 	CustomerNo string `form:"customer_no" json:"customer_no" binding:"required"`
-	Timestamp  string `form:"timestamp" json:"timestamp"`
 }
 
 // PLNInquiryResponse represents the response for PLN inquiry

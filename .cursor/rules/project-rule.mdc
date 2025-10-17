@@ -30,13 +30,28 @@ gateway-digiflazz/
 │   └── middleware/        # HTTP middleware
 ├── pkg/                   # Public library code
 │   ├── digiflazz/         # Digiflazz API client
+│   ├── cache/             # Cache implementations (SQLite, Redis)
 │   └── utils/             # Utility functions
-├── api/                   # API definitions
-├── configs/               # Configuration files
+├── scripts/               # Build and deployment scripts
+│   ├── build-*.sh         # Cross-platform build scripts
+│   ├── test-*.bat         # Windows testing scripts
+│   ├── setup-*.sh         # Setup and configuration scripts
+│   └── debug-*.ps1        # PowerShell debugging scripts
 ├── docs/                  # Documentation
-├── tests/                 # Test files
+│   ├── api-reference.md   # API documentation
+│   ├── windows-troubleshooting.md
+│   ├── cache-behavior-fix.md
+│   └── permanent-cache-implementation.md
+├── .github/               # GitHub Actions workflows
+│   └── workflows/
+│       ├── build-all-platforms.yml
+│       └── release.yml
+├── data/                  # Runtime data directory
+├── build/                 # Build output directory
 ├── go.mod
 ├── go.sum
+├── Makefile               # Build automation
+├── Dockerfile             # Container configuration
 └── README.md
 ```
 
@@ -72,6 +87,8 @@ gateway-digiflazz/
 - **Transaction Processing**: Topup, pembayaran tagihan
 - **Status Checking**: Cek status transaksi
 - **Webhook Handling**: Proses callback dari Digiflazz
+- **PLN Inquiry**: Cek data pelanggan PLN dengan permanent caching
+- **Pascabayar Services**: Pembayaran tagihan (PLN, PDAM, Telkom, dll)
 
 ### 2. Supported Providers
 - **Prabayar**: Pulsa, Token Listrik, Game Voucher
@@ -92,6 +109,8 @@ gateway-digiflazz/
 DIGIFLAZZ_USERNAME=your_username
 DIGIFLAZZ_API_KEY=your_api_key
 DIGIFLAZZ_BASE_URL=https://api.digiflazz.com
+DIGIFLAZZ_TIMEOUT=30s
+DIGIFLAZZ_RETRY_ATTEMPTS=3
 DIGIFLAZZ_IP_WHITELIST=52.74.250.133
 
 # Server Configuration
@@ -99,12 +118,24 @@ SERVER_PORT=8080
 SERVER_HOST=0.0.0.0
 LOG_LEVEL=info
 
+# Cache Configuration
+CACHE_DB_PATH=./data/cache.db
+
+# Otomax Configuration
+OTOMAX_SECRET_KEY=default-secret-key
+OTOMAX_CALLBACK_URL=http://localhost:8080/otomax/callback
+
 # Database Configuration (if needed)
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=digiflazz_gateway
 DB_USER=your_db_user
 DB_PASSWORD=your_db_password
+
+# Redis Configuration (alternative cache)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
 ```
 
 ## Error Handling Standards
@@ -114,6 +145,9 @@ DB_PASSWORD=your_db_password
 - Handle timeout and network errors gracefully
 - Implement retry mechanism for failed requests
 - Log all API interactions for debugging
+- Handle IP whitelist errors specifically
+- Validate empty responses from Digiflazz API
+- Implement customer number format validation
 
 ### 2. Custom Error Types
 ```go
@@ -149,6 +183,10 @@ type DigiflazzError struct {
 - Include request/response IDs
 - Log all API calls to Digiflazz
 - Implement log levels (DEBUG, INFO, WARN, ERROR)
+- Log platform information (OS/Architecture)
+- Log User-Agent headers for debugging
+- Log raw API responses for troubleshooting
+- Log cache hit/miss statistics
 
 ### 2. Metrics and Monitoring
 - Track API response times
@@ -177,6 +215,9 @@ type DigiflazzError struct {
 - Create multi-stage builds
 - Optimize image size
 - Use non-root user
+- **Windows CGO Support**: Build Windows binaries with CGO enabled for SQLite
+- **Cross-Platform Builds**: Support Linux, Windows, macOS builds
+- **GitHub Actions**: Automated CI/CD with multi-platform builds
 
 ### 2. Environment Setup
 - Development, staging, production environments
@@ -205,6 +246,10 @@ type DigiflazzError struct {
 - Cache balance information
 - Implement cache invalidation
 - Use Redis for distributed caching
+- **PLN Inquiry Permanent Cache**: Cache PLN customer data permanently (no TTL)
+- **SQLite Cache**: Local file-based cache for single-instance deployments
+- **Cache Consistency**: Ensure consistent response format between cache hit/miss
+- **Cache Statistics**: Track cache hit/miss rates and performance metrics
 
 ### 2. Database Optimization
 - Proper indexing
@@ -226,6 +271,40 @@ type DigiflazzError struct {
 - Consistent response formats
 - API versioning strategy
 
+## Build and Testing
+
+### 1. Build System
+- **Makefile**: Centralized build automation
+- **Cross-Platform Builds**: Linux, Windows, macOS support
+- **CGO Support**: SQLite integration with CGO enabled
+- **Windows Build**: Wine-based cross-compilation for Windows
+- **Docker Support**: Containerized builds for consistency
+
+### 2. Testing Framework
+- **Unit Tests**: Test all service methods and handlers
+- **Integration Tests**: Test Digiflazz API integration
+- **Cache Testing**: Test cache behavior and consistency
+- **Windows Testing**: Batch files and PowerShell scripts
+- **API Testing**: Automated endpoint testing
+
+### 3. Build Commands
+```bash
+# Build for all platforms
+make build-all
+
+# Build Windows with CGO
+make build-windows-cgo
+
+# Test Windows binary
+make test-windows-fixed
+
+# Test cache behavior
+make test-cache-behavior
+
+# Debug Windows issues
+make debug-windows
+```
+
 ## Development Workflow
 
 ### 1. Git Workflow
@@ -239,6 +318,37 @@ type DigiflazzError struct {
 - Implement pre-commit hooks
 - Code formatting with gofmt
 - Static analysis tools
+- **Build Automation**: Makefile with targets for build, test, and deployment
+- **Testing Scripts**: Windows batch files and PowerShell scripts for testing
+- **Cross-Platform Testing**: Test on multiple operating systems
+
+## Troubleshooting and Known Issues
+
+### 1. Windows Build Issues
+- **CGO Cross-Compilation**: Use Wine or native Windows build
+- **IP Whitelist Errors**: Ensure server IP is registered with Digiflazz
+- **Empty Responses**: Check timeout and retry configuration
+- **Cache Path Issues**: Use absolute paths for Windows compatibility
+
+### 2. PLN Inquiry Issues
+- **Empty Response**: Validate customer number format (10-15 digits)
+- **Cache Inconsistency**: Ensure proper ref_id mapping
+- **Permanent Cache**: PLN data cached without expiration
+- **Response Format**: Consistent structure between cache hit/miss
+
+### 3. Common Solutions
+```bash
+# Set proper environment variables
+set DIGIFLAZZ_TIMEOUT=30s
+set DIGIFLAZZ_RETRY_ATTEMPTS=3
+set LOG_LEVEL=debug
+
+# Clear cache if needed
+del data\cache.db
+
+# Test with debug logging
+make test-windows-fixed
+```
 
 ## Maintenance and Updates
 
@@ -254,6 +364,31 @@ type DigiflazzError struct {
 - Disaster recovery plan
 - Data retention policies
 
+## GitHub Actions and Release Management
+
+### 1. CI/CD Workflows
+- **build-all-platforms.yml**: Build for Linux, Windows, macOS
+- **release.yml**: Automated release creation with artifacts
+- **Multi-Platform Builds**: Native runners for each platform
+- **Artifact Management**: Automated upload and download
+
+### 2. Release Process
+```bash
+# Create and push tag
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+
+# Or use GitHub Actions manual dispatch
+# Go to Actions → "Create Release" → Run workflow
+```
+
+### 3. Build Matrix
+- **Linux**: amd64 (ARM64 disabled due to CGO issues)
+- **Windows**: amd64 with CGO enabled
+- **macOS**: amd64 and arm64
+
 ---
 
 **Note**: This project rule document should be updated as the project evolves and new requirements are identified. Always refer to the official Digiflazz documentation for the most current API specifications.
+
+**Last Updated**: October 2025 - Added Windows CGO support, permanent caching, enhanced error handling, and comprehensive testing framework.

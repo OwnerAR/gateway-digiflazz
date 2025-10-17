@@ -108,6 +108,30 @@ debug-windows:
 		powershell -ExecutionPolicy Bypass -File scripts/debug-windows.ps1; \
 	fi
 
+# Debug Windows configuration
+debug-config-windows:
+	@echo "Debugging Windows configuration..."
+	@if [ -f "build/$(BINARY_NAME)-windows-amd64.exe" ]; then \
+		echo "Running configuration debug script..."; \
+		scripts/debug-config-windows.bat; \
+	else \
+		echo "Windows binary not found. Building first..."; \
+		$(MAKE) build-windows-cgo; \
+		scripts/debug-config-windows.bat; \
+	fi
+
+# Test PLN inquiry with proper Windows configuration
+test-pln-inquiry-windows:
+	@echo "Testing PLN inquiry with proper Windows configuration..."
+	@if [ -f "build/$(BINARY_NAME)-windows-amd64.exe" ]; then \
+		echo "Running PLN inquiry test script..."; \
+		scripts/test-pln-inquiry-windows.bat; \
+	else \
+		echo "Windows binary not found. Building first..."; \
+		$(MAKE) build-windows-cgo; \
+		scripts/test-pln-inquiry-windows.bat; \
+	fi
+
 # Create git tag for release
 create-tag:
 	@echo "Creating git tag for release..."

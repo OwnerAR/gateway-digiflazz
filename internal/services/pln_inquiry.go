@@ -47,7 +47,7 @@ func NewPLNInquiryService(client *digiflazz.Client, logger *logrus.Logger, cache
 }
 
 // InquiryPLN performs PLN inquiry with caching strategy
-func (s *PLNInquiryService) InquiryPLN(req models.PLNInquiryRequest) (*models.PLNInquiryResponse, error) {
+func (s *PLNInquiryService) InquiryPLN(req models.PLNInquiryRequest, refID string) (*models.PLNInquiryResponse, error) {
 	startTime := time.Now()
 	s.stats.TotalRequests++
 
@@ -63,7 +63,7 @@ func (s *PLNInquiryService) InquiryPLN(req models.PLNInquiryRequest) (*models.PL
 			s.stats.CacheHits++
 			s.logger.WithFields(logrus.Fields{
 				"customer_no": req.CustomerNo,
-				"ref_id":      req.RefID,
+				"ref_id":      refID,
 			}).Info("PLN inquiry served from cache")
 			
 			// Update response time
@@ -71,7 +71,7 @@ func (s *PLNInquiryService) InquiryPLN(req models.PLNInquiryRequest) (*models.PL
 			
 			// Build response with current ref_id
 			response := s.buildResponseFromCache(cached)
-			response.Data.RefID = req.RefID // Use current ref_id
+			response.Data.RefID = refID // Use current ref_id
 			response.Data.Message = cached.Message // Ensure message is included
 			response.Message = "PLN inquiry completed successfully (cached)"
 			response.Status = 1
@@ -80,7 +80,7 @@ func (s *PLNInquiryService) InquiryPLN(req models.PLNInquiryRequest) (*models.PL
 		s.stats.CacheMisses++
 		s.logger.WithFields(logrus.Fields{
 			"customer_no": req.CustomerNo,
-			"ref_id":      req.RefID,
+			"ref_id":      refID,
 		}).Info("PLN inquiry cache miss")
 	}
 
@@ -95,7 +95,7 @@ func (s *PLNInquiryService) InquiryPLN(req models.PLNInquiryRequest) (*models.PL
 
 	// Cache the response if successful and caching is enabled
 	if s.config.CacheEnabled && resp.Data.RC == "00" {
-		if err := s.setToCache(req.CustomerNo, req.RefID, resp); err != nil {
+		if err := s.setToCache(req.CustomerNo, refID, resp); err != nil {
 			s.logger.WithError(err).Warn("Failed to cache PLN inquiry response")
 		}
 	}
@@ -105,7 +105,7 @@ func (s *PLNInquiryService) InquiryPLN(req models.PLNInquiryRequest) (*models.PL
 
 	// Ensure response has proper structure for cache miss
 	if resp.Data.RefID == "" {
-		resp.Data.RefID = req.RefID
+		resp.Data.RefID = refID
 	}
 	if resp.Data.Message == "" && resp.Data.RC == "00" {
 		resp.Data.Message = "Transaksi Sukses"

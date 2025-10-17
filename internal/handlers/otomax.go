@@ -303,16 +303,14 @@ func (h *OtomaxHandler) InquiryPLN(c *gin.Context) {
 	h.logger.WithFields(logrus.Fields{
 		"ref_id":      req.RefID,
 		"customer_no": req.CustomerNo,
-		"timestamp":   req.Timestamp,
 	}).Info("Processing PLN inquiry request")
 
 	// Use PLN inquiry service with cache strategy
 	plnReq := models.PLNInquiryRequest{
-		RefID:      req.RefID,
 		CustomerNo: req.CustomerNo,
 	}
 	
-	resp, err := h.plnInquiryService.InquiryPLN(plnReq)
+	resp, err := h.plnInquiryService.InquiryPLN(plnReq, req.RefID)
 	if err != nil {
 		h.logger.WithError(err).WithFields(logrus.Fields{
 			"ref_id":      req.RefID,
