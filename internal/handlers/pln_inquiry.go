@@ -46,8 +46,11 @@ func (h *PLNInquiryHandler) InquiryPLN(c *gin.Context) {
 		return
 	}
 
+	// Generate refID for direct API call (use customer_no as refID)
+	refID := req.RefID
+	
 	// Perform PLN inquiry
-	resp, err := h.plnInquiryService.InquiryPLN(req)
+	resp, err := h.plnInquiryService.InquiryPLN(req, refID)
 	if err != nil {
 		h.logger.WithError(err).Error("PLN inquiry failed")
 		c.JSON(http.StatusInternalServerError, models.PLNInquiryError{
